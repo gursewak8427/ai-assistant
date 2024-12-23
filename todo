@@ -1,0 +1,37 @@
+const { diffLines } = require('diff'); // Import the diff package
+
+// Update an existing file by applying only new changes
+const updateFile = async ({ fileFullPath, fileContent }) => {
+    if (fs.existsSync(fileFullPath)) {
+        const existingContent = fs.readFileSync(fileFullPath, 'utf-8');
+        const changes = diffLines(existingContent, fileContent);
+
+        // Open the file in the editor
+        const uri = vscode.Uri.file(fileFullPath);
+        const document = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(document, { preview: false });
+
+        for (const change of changes) {
+            if (change.added) {
+                // Add new content
+                const startPos = document.positionAt(existingContent.length);
+                editor.edit((editBuilder) => {
+                    editBuilder.insert(startPos, change.value);
+                });
+            } else if (change.removed) {
+                // Find and remove old content
+                const startIndex = existingContent.indexOf(change.value);
+                if (startIndex !== -1) {
+                    const startPos = document.positionAt(startIndex);
+                    const endPos = document.positionAt(startIndex + change.value.length);
+                    editor.edit((editBuilder) => {
+                        editBuilder.delete(new vscode.Range(startPos, endPos));
+                    });
+                }
+            }
+        }
+        console.log(`File updated with minimal changes: ${fileFullPath}`);
+    } else {
+        console.error(`File not found for update: ${fileFullPath}`);
+    }
+};
